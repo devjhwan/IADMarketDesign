@@ -70,6 +70,106 @@
 ; - deny
 ; -- salir del mercado
 ; -- cerrar el mercado (seller no tiene mas para vender)
+
+breed [buyers buyer]
+breed [sellers seller]
+
+buyers-own [
+  budget  ; Presupuesto aleatorio [10 - 500]
+  ticket  ; Lista con los precios vistos en chart [price Bitcoin, price Dogecoin, price USDcoin]
+  scene  ; Variable para la escena actual (1 para watchPriceCoin, 2 para BuyCoin)
+  received_protocol
+]
+
+sellers-own [
+  cryptocurrencies  ; Lista con la cantidad de criptomonedas de cada tipo [Bitcoin, Dogecoin, USDcoin]
+  received_protocol
+]
+
+turtles-own [
+  current-ticket  ; Variable donde guardaremos el ticket actual del comprador
+]
+
+to setup
+  clear-all
+  create-sellers 1 [
+    setxy random-xcor random-ycor
+    set shape "house"
+    set cryptocurrencies n-values 3 [random 25 + 1]  ; Cantidades iniciales de criptomonedas
+    set received_protocol []
+  ]
+
+  create-buyers 5 [
+    setxy random-xcor random-ycor
+    set shape "person"
+    set budget random 491 + 10  ; Presupuesto aleatorio [10 - 500]
+    set ticket [0 0 0]  ; Lista con precios iniciales [0, 0, 0]
+    set scene 1  ; Iniciar en la escena watchPriceCoin
+    set received_protocol []
+  ]
+
+  reset-ticks
+end
+
+to go
+  ask buyers [
+    (ifelse
+      scene = 1 [
+        watchPriceCoin
+      ]
+      scene = 2 [
+        buyCoin
+      ] [
+      ; Otras escenas
+    ])
+  ]
+  ask sellers [
+
+  ]
+  tick
+  wait 0.1
+end
+
+to watchPriceCoin
+  set ticket replace-item 0 ticket (random 401 + 100)
+  set ticket replace-item 1 ticket (random 191 + 10)
+  set ticket replace-item 2 ticket (random 91 + 30)
+
+  show (word budget ticket )
+  set scene 2
+  ; Aquí añadiremos toda la lógica de la escena watchPriceCoin
+end
+
+to buyCoin
+  ; Lógica para la escena BuyCoin
+  ifelse current-ticket != nobody [
+    if (budget > item 0 ticket or
+        budget > item 1 ticket or
+        budget > item 2 ticket) [
+      show "Condition is true!"
+      let max-value max ticket
+      show max-value
+    ]
+    ; Lógica para la compra de criptomonedas y cálculo de tasas
+    ; if (budget >= current-ticket[0] && budget >= current-ticket[1] && budget >= current-ticket[2]){
+    ;   max(current-ticket)
+    ;   Compraremos el más grande de todos si nuestro budget nos lo permite
+    ; let selected-cryptocurrency item 0 current-ticket
+    ; let selected-price item selected-cryptocurrency ticket
+    ; Añadir la logica de comprar las crypto por los compradores
+  ] [
+    print "No tienes un ticket válido para comprar."
+  ]
+
+  ; Aquí añadiremos toda la lógica de la escena buyCoin
+end
+
+to sendProtocol [ protocol sender receiver content ]
+  let message (list protocol sender receiver content)
+  ask receiver [
+    set received_protocol lput message received_protocol
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -97,6 +197,40 @@ GRAPHICS-WINDOW
 1
 ticks
 30.0
+
+BUTTON
+27
+47
+96
+80
+NIL
+setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+114
+48
+183
+81
+NIL
+go
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
