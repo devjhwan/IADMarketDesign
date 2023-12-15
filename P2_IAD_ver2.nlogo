@@ -24,10 +24,12 @@ globals [
   REQUEST
   INFORM
   CONFIRM
+  DENY
 
   SHOW_REMAINING_COINS
   BUY_COIN
   INFORM_TAX_ADDITION
+  ALL_COIN_SOLD_OUT
 ]
 
 turtles-own [
@@ -50,25 +52,27 @@ to gloval_constant_var_setup
   set REQUEST 0
   set INFORM 1
   set CONFIRM 2
+  set DENY 3
 
   set SHOW_REMAINING_COINS 0
   set BUY_COIN 1
   set INFORM_TAX_ADDITION 2
+  set ALL_COIN_SOLD_OUT 4
 end
 
 to sellers_setup
-  create-sellers 1
+  create-sellers sellers_num
   [
     setxy random-xcor random-ycor
     set shape "house"
-    set cryptocurrencies n-values 3 [random 25 + 1]
-    set tax_percent 0.05
+    set cryptocurrencies n-values 3 [random 24 + 1]
+    set tax_percent tax_value / 100
     set received_protocol []
   ]
 end
 
 to buyers_setup
-  create-buyers 1
+  create-buyers buyers_num
   [
     setxy random-xcor random-ycor
     set shape "person"
@@ -92,6 +96,7 @@ to go
   ]
   ask sellers
   [
+    show cryptocurrencies
     respond_request
     check_end
   ]
@@ -129,7 +134,7 @@ end
 to request_to_show_coins
   ifelse current-ticket != nobody
   [
-    if (check_budget = 1)
+    ifelse (check_budget = 1)
     [
       let buyerx who
       let content ticket
@@ -139,6 +144,10 @@ to request_to_show_coins
         sendProtocol REQUEST buyerx sellery SHOW_REMAINING_COINS content
       ]
       set state WAITING_RESPONSE
+    ]
+    [
+      show "No tengo dinero suficiente para comprar coins"
+      set state END_STATE
     ]
   ]
   [
@@ -162,9 +171,9 @@ end
 ;cuando le llega la lista de los coins del seller busca el máximo coin que puede comprar y
 ;pide al seller para comprar ese coin
 ;cuando le llega la información de la taxa comprueba de nuevo si se puede comprar,
-;si se puede comprar confirma la compra y se queda.
-;si no se puede pues no hace nada
-;al final cambia su estado a estado final
+;si se puede comprar confirma la compra y espera la última confirmación.
+;si llega la confirmación de comprar coin entonces se lo queda y cambia el estado en fin
+;en cualquier momento si le llega el protocolo de DENY se cambia el estado en fin
 to receive_sellers_response
   if not empty? received_protocol
   [
@@ -180,22 +189,32 @@ to receive_sellers_response
       if content_type = SHOW_REMAINING_COINS
       [
         let buy_coin_index get_most_expensive_coin content
-        show buy_coin_index
         sendProtocol REQUEST who sender BUY_COIN buy_coin_index
       ]
       if content_type = INFORM_TAX_ADDITION
       [
         apply_tax_to_ticket content
         let buy_coin_index get_most_expensive_coin [1 1 1]
-        show buy_coin_index
         ifelse buy_coin_index = -1
-        [ show "falta dinero para comprar el coin" ]
         [
-          sendProtocol CONFIRM who sender BUY_COIN buy_coin_index
-          show "He comprado un coin"
+          show "falta dinero para comprar el coin"
+          set state END_STATE
         ]
+        [ sendProtocol CONFIRM who sender BUY_COIN buy_coin_index ]
+      ]
+    ]
+    if protocol = CONFIRM
+    [
+      if content_type = BUY_COIN
+      [
+        show "He comprado un coin"
         set state END_STATE
       ]
+    ]
+    if protocol = DENY
+    [
+      show "No he podido comprar ningún coin"
+      set state END_STATE
     ]
     set received_protocol []
   ]
@@ -237,8 +256,8 @@ to apply_tax_to_ticket [ tax ]
   set USDcoin USDcoin + USDcoin * tax
 
   set ticket replace-item 0 ticket Bitcoin
-  set ticket replace-item 0 ticket Dogecoin
-  set ticket replace-item 0 ticket USDcoin
+  set ticket replace-item 1 ticket Dogecoin
+  set ticket replace-item 2 ticket USDcoin
 end
 
 ; seller function
@@ -248,7 +267,10 @@ end
 ;la lista de criptomonedas que tiene
 ;en caso de que recive request de INFORM_TAX_ADDITION devuelve el mensage con
 ;la taxa de ahora
-;en caso de que recive CONFIRM de BUY_COIN actualiza su criptomoneda
+;en caso de que recive CONFIRM de BUY_COIN comprueba por último si tiene coins suficientes
+;y si lo tiene entonces confirma la compra.
+;sino, envia el protocolo de deny.
+;en cualquier momento si no le queda ningún coin [0, 0, 0] envia DENY en cualquier estado.
 to respond_request
   if not empty? received_protocol
   [
@@ -260,6 +282,9 @@ to respond_request
       let content_type item 3 message
       let content item 4 message
       (ifelse
+        max cryptocurrencies = 0 ; check if all coins is sold out
+        [ show "no hay mas coins a vender"
+          sendProtocol DENY who sender ALL_COIN_SOLD_OUT cryptocurrencies ]
         protocol = REQUEST
         [
           if content_type = SHOW_REMAINING_COINS
@@ -272,9 +297,16 @@ to respond_request
           if content_type = BUY_COIN
           [
             let coin_index content
+            show (word "coin" coin_index)
             let coin item coin_index cryptocurrencies
-            set cryptocurrencies replace-item coin_index cryptocurrencies (coin - 1)
-            show (word "Coins que falta" cryptocurrencies)
+            ifelse
+            coin = 0
+            [ sendProtocol DENY who sender ALL_COIN_SOLD_OUT cryptocurrencies ]
+            [
+              set cryptocurrencies replace-item coin_index cryptocurrencies (coin - 1)
+              sendProtocol CONFIRM who sender BUY_COIN coin_index
+              show (word "Coins que falta" cryptocurrencies)
+            ]
           ]
         ]
       )
@@ -309,11 +341,11 @@ end
 GRAPHICS-WINDOW
 210
 10
-647
-448
+703
+504
 -1
 -1
-13.0
+14.7
 1
 10
 1
@@ -366,6 +398,51 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+20
+98
+192
+131
+sellers_num
+sellers_num
+1
+20
+4.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+20
+138
+192
+171
+buyers_num
+buyers_num
+0
+200
+200.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+20
+178
+192
+211
+tax_value
+tax_value
+0
+100
+5.0
+1
+1
+%
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
