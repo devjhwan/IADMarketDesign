@@ -1,145 +1,105 @@
-;cryptomony market
-
-;Roles
-                          ;- n staffs??????????
-;- n buyers
-;- 1 sellers
-
-;tipos de cryptomonedas
-;- Bitcoin 100 - 500 eur
-;- Dogecoin 10 - 200 eur
-;- USDcoin 30 - 120 eur
-
-;Scenes
-                          ;- Autentificacion???????
-;- WatchCoinPrize
-;- BuyCoin
-
-;ontologia
-;- cryptomoney
-;- Bitcoin
-;- Dogecoin
-;- USDcoin
-;- price
-;- chart
-;- ticket
-
-;Protocolos
-;Request - peticion para comprar mondes o entrar en el mercado ... etc
-;Inform - informa el precio con la taxa incluida ... etc
-;Deny - rechaza la compra ... etc
-
-;-----------------------------------------------
-
-;inicializar roles
-;buyer
-;- presupuesto = 10 - 500 eur
-;- precios vistos en chart = [0, 0, 0]
-
-;seller
-;- coins que tiene [3,4,2]
-
-;Scenes = 1, 2, 3
-
-;Crear buyers y seller
-
-;Cada buyer entra en la escena de WatchCoinPrize
-;- Entra uno a uno consecutivamente y a cada buyer le da un tiquet de precios.
-
-;una vez el buyer tiene el tiquet va a escena de BuyCoin.
-;- si no puede comprar nada se va.
-
-;Buyer enseña al seller el tiquet (inform) y pide el coin que quiere (request).
-;Seller mira el tiquet y informa el precio incluido con la taxa (inform).
-;Buyer decide finalmente comprarlo o no (inform o deny).
-;Si lo compra entonces se resta el coin que tiene seller y buyer se va.
-
-;Todo
-;inicializar roles
-;WatchCoinPrice
-; - request chart
-; - inform tiket
-; -- ir al buyCoin
-; -- salir del mercado
-
-;BuyCoin
-; - inform tiket
-; - request buy
-; - inform finalprice
-; - inform accept
-; - deny
-; -- salir del mercado
-; -- cerrar el mercado (seller no tiene mas para vender)
-
 breed [buyers buyer]
 breed [sellers seller]
 
 buyers-own [
-  budget  ; Presupuesto aleatorio [10 - 500]
-  ticket  ; Lista con los precios vistos en chart [price Bitcoin, price Dogecoin, price USDcoin]
-  scene  ; Variable para la escena actual (1 para watchPriceCoin, 2 para BuyCoin)
+  budget
+  ticket
+  scene
   state
   received_protocol
 ]
 
 sellers-own [
-  cryptocurrencies  ; Lista con la cantidad de criptomonedas de cada tipo [Bitcoin, Dogecoin, USDcoin]
+  cryptocurrencies
+  tax_percent
   received_protocol
-  state
 ]
 
+;constantes para definir estados, protocolos y tipo de contenido
 globals [
   INIT_STATE
   WAITING_RESPONSE
+  END_STATE
+
+  REQUEST
+  INFORM
+  CONFIRM
+
+  SHOW_REMAINING_COINS
+  BUY_COIN
+  INFORM_TAX_ADDITION
 ]
 
 turtles-own [
-  current-ticket  ; Variable donde guardaremos el ticket actual del comprador
+  current-ticket
 ]
 
 to setup
   clear-all
-  set INIT_STATE 0
-  set WAITING_RESPONSE 1
-
-  create-sellers 1 [
-    setxy random-xcor random-ycor
-    set shape "house"
-    set cryptocurrencies n-values 3 [random 25 + 1]  ; Cantidades iniciales de criptomonedas
-    set received_protocol []
-  ]
-
-  create-buyers 1 [
-    setxy random-xcor random-ycor
-    set shape "person"
-    set budget random 491 + 10  ; Presupuesto aleatorio [10 - 500]
-    set ticket [0 0 0]  ; Lista con precios iniciales [0, 0, 0]
-    set scene 1  ; Iniciar en la escena watchPriceCoin
-    set state INIT_STATE
-    set received_protocol []
-  ]
-
+  gloval_constant_var_setup
+  sellers_setup
+  buyers_setup
   reset-ticks
 end
 
-to go
-  ask buyers [
-    (ifelse
-      scene = 1 [
-        watchPriceCoin
-      ]
-      scene = 2 [
-        buyCoin
-      ] [
-      ; Otras escenas
-    ])
-  ]
-  ask sellers [
+to gloval_constant_var_setup
+  set INIT_STATE 0
+  set WAITING_RESPONSE 1
+  set END_STATE 2
 
+  set REQUEST 0
+  set INFORM 1
+  set CONFIRM 2
+
+  set SHOW_REMAINING_COINS 0
+  set BUY_COIN 1
+  set INFORM_TAX_ADDITION 2
+end
+
+to sellers_setup
+  create-sellers 1
+  [
+    setxy random-xcor random-ycor
+    set shape "house"
+    set cryptocurrencies n-values 3 [random 25 + 1]
+    set tax_percent 0.05
+    set received_protocol []
+  ]
+end
+
+to buyers_setup
+  create-buyers 1
+  [
+    setxy random-xcor random-ycor
+    set shape "person"
+    set budget random 491 + 10
+    set ticket [0 0 0]
+    set scene 1
+    set state INIT_STATE
+    set received_protocol []
+  ]
+end
+
+; start main flow
+
+to go
+  ask buyers
+  [
+    (ifelse
+      scene = 1 [watchPriceCoin]
+      scene = 2 [buyCoin]
+    )
+  ]
+  ask sellers
+  [
+    respond_request
+    check_end
   ]
   tick
   wait 0.1
 end
+
+;buyer function
 
 to watchPriceCoin
   set ticket replace-item 0 ticket (random 401 + 100)
@@ -149,38 +109,201 @@ to watchPriceCoin
   show (word budget ticket )
   set scene 2
   set state INIT_STATE
-  ; Aquí añadiremos toda la lógica de la escena watchPriceCoin
 end
 
+;depende del estado hace una acción o la otra
 to buyCoin
-  ; Lógica para la escena BuyCoin
-  ifelse current-ticket != nobody [
-    if (budget > item 0 ticket or
-        budget > item 1 ticket or
-        budget > item 2 ticket) [
-      show "Condition is true!"
-      let max-value max ticket
-      show max-value
-    ]
-    ; Lógica para la compra de criptomonedas y cálculo de tasas
-    ; if (budget >= current-ticket[0] && budget >= current-ticket[1] && budget >= current-ticket[2]){
-    ;   max(current-ticket)
-    ;   Compraremos el más grande de todos si nuestro budget nos lo permite
-    ; let selected-cryptocurrency item 0 current-ticket
-    ; let selected-price item selected-cryptocurrency ticket
-    ; Añadir la logica de comprar las crypto por los compradores
-  ] [
-    print "No tienes un ticket válido para comprar."
-  ]
-
-  ; Aquí añadiremos toda la lógica de la escena buyCoin
+  (ifelse
+    state = INIT_STATE
+      [ request_to_show_coins ]
+    state = WAITING_RESPONSE
+      [ receive_sellers_response ]
+      [ die ]
+  )
 end
 
-to sendProtocol [ protocol sender receiver content ]
-  let message (list protocol sender receiver content)
-  ask receiver [
-    set received_protocol lput message received_protocol
+;pide a todos los sellers que le enseñe los coins que tiene y
+;cambia su estado a estado de espera de respuesta
+;si con su ticket no puede comprar nada entonces no hace nada y
+;cambia su estado a estado final
+to request_to_show_coins
+  ifelse current-ticket != nobody
+  [
+    if (check_budget = 1)
+    [
+      let buyerx who
+      let content ticket
+      ask sellers
+      [
+        let sellery who
+        sendProtocol REQUEST buyerx sellery SHOW_REMAINING_COINS content
+      ]
+      set state WAITING_RESPONSE
+    ]
   ]
+  [
+    show "No tienes un ticket válido para comprar."
+    set state END_STATE
+  ]
+end
+
+;comprueba si su ticket es válido o no
+;si es valido devuelve 1 y si no devuelve 0
+to-report check_budget
+  ifelse (budget > item 0 ticket or
+      budget > item 1 ticket or
+      budget > item 2 ticket)
+  [ report 1 ]
+  [ report 0 ]
+end
+
+;recive la respuesta del seller
+;solo coge la primera respuesta que le ha llegado para no hacer multiples transacciones.
+;cuando le llega la lista de los coins del seller busca el máximo coin que puede comprar y
+;pide al seller para comprar ese coin
+;cuando le llega la información de la taxa comprueba de nuevo si se puede comprar,
+;si se puede comprar confirma la compra y se queda.
+;si no se puede pues no hace nada
+;al final cambia su estado a estado final
+to receive_sellers_response
+  if not empty? received_protocol
+  [
+    let message item 0 received_protocol
+    show message
+    let protocol item 0 message
+    let sender item 1 message
+    let receiver item 2 message
+    let content_type item 3 message
+    let content item 4 message
+    if protocol = INFORM
+    [
+      if content_type = SHOW_REMAINING_COINS
+      [
+        let buy_coin_index get_most_expensive_coin content
+        show buy_coin_index
+        sendProtocol REQUEST who sender BUY_COIN buy_coin_index
+      ]
+      if content_type = INFORM_TAX_ADDITION
+      [
+        apply_tax_to_ticket content
+        let buy_coin_index get_most_expensive_coin [1 1 1]
+        show buy_coin_index
+        ifelse buy_coin_index = -1
+        [ show "falta dinero para comprar el coin" ]
+        [
+          sendProtocol CONFIRM who sender BUY_COIN buy_coin_index
+          show "He comprado un coin"
+        ]
+        set state END_STATE
+      ]
+    ]
+    set received_protocol []
+  ]
+end
+
+;devuelve el index del coin más caro que puede comprar
+;si existe algún coin que puede comprar devuelve su index
+;si no, devuelve -1
+;[Bitcoin, Dogecoin, USDcoin]
+to-report get_most_expensive_coin [ remaining_coins ]
+  let Bitcoin item 0 remaining_coins
+  let Dogecoin item 1 remaining_coins
+  let USDcoin item 2 remaining_coins
+
+  if Bitcoin = 0 or budget < Bitcoin
+  [ set ticket replace-item 0 ticket 0 ]
+  if Dogecoin = 0 or budget < Dogecoin
+  [ set ticket replace-item 1 ticket 0 ]
+  if USDcoin = 0 or budget < USDcoin
+  [ set ticket replace-item 2 ticket 0 ]
+
+  let max_value max ticket
+  ifelse max_value = 0
+  [report -1]
+  [
+    let max_index position max_value ticket
+    report max_index
+  ]
+end
+
+;aplica la taxa a los valores del ticket
+to apply_tax_to_ticket [ tax ]
+  let Bitcoin item 0 ticket
+  let Dogecoin item 1 ticket
+  let USDcoin item 2 ticket
+
+  set Bitcoin Bitcoin + Bitcoin * tax
+  set Dogecoin Dogecoin + Dogecoin * tax
+  set USDcoin USDcoin + USDcoin * tax
+
+  set ticket replace-item 0 ticket Bitcoin
+  set ticket replace-item 0 ticket Dogecoin
+  set ticket replace-item 0 ticket USDcoin
+end
+
+; seller function
+
+;responde a los requests del buyer
+;en caso de que recive request de SHOW_REMAINING_COINS devuelve el mensage con
+;la lista de criptomonedas que tiene
+;en caso de que recive request de INFORM_TAX_ADDITION devuelve el mensage con
+;la taxa de ahora
+;en caso de que recive CONFIRM de BUY_COIN actualiza su criptomoneda
+to respond_request
+  if not empty? received_protocol
+  [
+    foreach received_protocol [ [message] ->
+      show message
+      let protocol item 0 message
+      let sender item 1 message
+      let receiver item 2 message
+      let content_type item 3 message
+      let content item 4 message
+      (ifelse
+        protocol = REQUEST
+        [
+          if content_type = SHOW_REMAINING_COINS
+          [ sendProtocol INFORM who sender SHOW_REMAINING_COINS cryptocurrencies ]
+          if content_type = BUY_COIN
+          [ sendProtocol INFORM who sender INFORM_TAX_ADDITION tax_percent ]
+        ]
+        protocol = CONFIRM
+        [
+          if content_type = BUY_COIN
+          [
+            let coin_index content
+            let coin item coin_index cryptocurrencies
+            set cryptocurrencies replace-item coin_index cryptocurrencies (coin - 1)
+            show (word "Coins que falta" cryptocurrencies)
+          ]
+        ]
+      )
+
+    ]
+    set received_protocol []
+  ]
+end
+
+;comprueba si le queda criptomonedas para vender.
+;si no hay mas para vender entonces se elimina
+to check_end
+  if max cryptocurrencies = 0
+  [
+    show "No hay mas coins para vender"
+    die
+  ]
+end
+
+; gloval function
+
+;función para transmitir protocolos entre los buyers y sellers
+;dado los elementos pasado por parámetro de la función
+;crea una lista que junta todos los elementos y añade al finál de la lista de
+;received_protocol de receiver
+to sendProtocol [ protocol sender receiver content_type content ]
+  let message (list protocol sender receiver content_type content)
+  ask turtles with [who = receiver]
+  [ set received_protocol lput message received_protocol ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
