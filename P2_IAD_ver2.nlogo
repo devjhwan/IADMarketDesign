@@ -408,7 +408,7 @@ sellers_num
 sellers_num
 1
 20
-4.0
+1.0
 1
 1
 NIL
@@ -423,7 +423,7 @@ buyers_num
 buyers_num
 0
 200
-200.0
+172.0
 1
 1
 NIL
@@ -438,7 +438,7 @@ tax_value
 tax_value
 0
 100
-5.0
+10.0
 1
 1
 %
@@ -447,39 +447,63 @@ HORIZONTAL
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+This model simulates a market where buyers and sellers engage in transactions involving cryptocurrencies. The buyers have a budget and tickets to be able to buy different types of cryptocurrencies. Sellers have a certain amount of cryptocurrencies and respond to buyers requests. The model shows a market interaction flow, including the exchange of protocols and confirmation of transactions.
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+**Buyers and Sellers Setup:** The model starts by creating two breeds, buyers and sellers. Each buyer and seller has specific attributes
+Buyer attributes: budget, ticket, scene, state, received_protocol
+Seller attributes: cryptocurrencies, tax_percent, received_protocol
+
+**Global Constants Setup:** Various constants are defined globally, representing states, protocols, and content types used in the simulation.
+
+**Main flow (go):** In each iteration, buyers watch cryptocurrency prices or attempt to buy coins based on their current scene and state. Sellers respond to requests, show their cryptocurrencies, and check for the end condition. The simulation progresses in discrete time steps.
+
+**Buyer Functions:** Buyers generate random ticket with the values of the cryptocurrencies, request sellers to show their available coins, and handle responses to initiate or confirm purchases.
+
+**Seller Functions:** Sellers try to responde to the buyers sequests, show available cryptocurrencies, and handle confirmation or denial of coin purchases. Sellers check for the end condition when no more coins are available.
+
+**Send Protocol:** This function facilitates communication between buyers and sellers by transmitting protocols and relevant info.
+
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
+We created 5 components:
+
+**Setup:** press the setup button to initialize the simulation with buyers and sellers
+
+**Go:** press the go button to run the simulation, allowing buyers and sellers to intract and conduct transactions.
+
+**Sellers_num:** this slider is responsible for create the sellers of the market.
+
+**Buyers_num:** this slider is responsible for create the buyers of the market.
+
+**Tax_value:** this slider is responsible for setting the tax when making a sale.
 
 ## THINGS TO NOTICE
 
-(suggested things for the user to notice while running the model)
+Observe how buyers generate random ticket values and attempt to purchase cryptocurrencies based on their budget.
+Sellers respond to buyer requests, show available cryptocurrencies, and confirm or deny transactions.
+The simulation progresses through different scenes and states, imitating a basic market interaction and using a protocol.
 
 ## THINGS TO TRY
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+Experiment with different initial parameters such as the number of buyers (buyers_num), sellers (sellers_num) and tax (tax_value). Observe how the market dynamics change as you adjust the budget of buyers or the initial amount of cryptocurrencies held by sellers.
 
 ## EXTENDING THE MODEL
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+- Implement more sophisticated buyer and seller strategies.
+- Introduce additional cryptocurrency types or modify existing ones.
+- Incorporate market dynamics such as price fluctuations, supply and demand factors, etc.
+- Modify the protocol for obtain a longer conversation between sellers and buyers.
 
 ## NETLOGO FEATURES
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+**Breeds:** The model uses NetLogo breeds to differentiate between buyers and sellers.
 
-## RELATED MODELS
+**Global Variables:** Various global variables are used to define constants and states.
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
-
-## CREDITS AND REFERENCES
-
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+**Turtles-own and Sellers-own:** Turtles (buyers and sellers) have their own set of attributes that influence their behavior.
 @#$#@#$#@
 default
 true
